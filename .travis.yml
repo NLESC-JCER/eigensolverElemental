@@ -11,6 +11,10 @@ addons:
       - ubuntu-toolchain-r-test
     packages:
       - cmake
+      - libblas
+      - libblas-dev
+      - liblapack-dev
+      - openmpi
   
 compiler: gcc
 
