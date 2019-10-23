@@ -1,0 +1,24 @@
+sudo: false
+
+language: cpp
+  
+os:
+  - linux
+
+addons:
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+    packages:
+      - cmake
+      - libeigen3-dev
+  
+compiler: gcc
+
+branches:
+  only:
+    - master
+    
+script:
+  - cmake -H. -Bbuild
+  - cmake --build build
