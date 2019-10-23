@@ -1,4 +1,4 @@
-sudo: false
+sudo: true
 
 language: cpp
   
@@ -7,23 +7,16 @@ os:
 
 dist: bionic
 
-addons:
-  apt:
-    sources:
-      - ubuntu-toolchain-r-test
-    packages:
-      - cmake
-      - libblas
-      - libblas-dev
-      - liblapack-dev
-      - openmpi
-  
 compiler: gcc
 
 branches:
   only:
     - master
-    
+
+before_install:
+  - sudo add apt-repository ppa:ubuntu-toolchain-r/test -y
+  - sudo apt get update -q
+  - sudo apt get install cmake libblas-dev liblapack-dev openmpi
 script:
   - cmake -H. -Bbuild
   - cmake --build build
