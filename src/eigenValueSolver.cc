@@ -9,12 +9,14 @@
 #include "eigenValueSolver.hpp"
 
 namespace eigenValueSolver {
-template <typename real> void eigenSolver<real>::initialise(El::Grid &grid) {
+template <typename real>
+void eigenSolver<real>::initialise(El::Grid &grid) {
 
   searchSpace.SetGrid(grid);
   searchSpacesub.SetGrid(grid);
   correctionVector.SetGrid(grid);
   eigenVectors.SetGrid(grid);
+  eigenVectorsFull.SetGrid(grid);
   eigenValues.SetGrid(grid);
   eigenValues_old.SetGrid(grid);
 
@@ -29,6 +31,9 @@ template <typename real> void eigenSolver<real>::initialise(El::Grid &grid) {
                columnsOfSearchSpace);
   El::Identity(eigenVectors, solverOptions.sizeOfTheMatrix,
                solverOptions.sizeOfTheMatrix);
+  El::Identity(eigenVectorsFull, solverOptions.sizeOfTheMatrix,
+                            solverOptions.sizeOfTheMatrix);
+    El::Identity(eigenValues, solverOptions.sizeOfTheMatrix, 1);
 }
 
 template <typename real>
@@ -41,6 +46,7 @@ void eigenSolver<real>::subspaceProblem(int iterations, El::DistMatrix<real> &A,
   El::DistMatrix<real> Ttemp(grid), T(grid);
   El::Zeros(Ttemp, solverOptions.sizeOfTheMatrix, iterations + 1);
   El::Zeros(T, iterations + 1, iterations + 1);
+  El::Zeros(eigenVectorsFull, solverOptions.sizeOfTheMatrix, iterations + 1);
 
   // Parameters for GEMM
   real alpha = 1, beta = 0;
@@ -52,6 +58,9 @@ void eigenSolver<real>::subspaceProblem(int iterations, El::DistMatrix<real> &A,
 
   // Get the eigen pairs for the reduced problem V^TAV
   El::HermitianEig(El::UPPER, T, eigenValues, eigenVectors);
+
+  //Calculate the eigenvectors of the full matrix
+  El::Gemm(El::NORMAL, El::NORMAL, alpha, searchSpacesub, eigenVectors, beta, eigenVectorsFull);
 }
 
 template <typename real>
@@ -63,7 +72,7 @@ void eigenSolver<real>::expandSearchSpace(int iterations,
     El::Range<int> beg(0, iterations + 1);
     El::Range<int> end(j, j + 1);
 
-    El::DistMatrix<real> residual(grid); // residual Ay-thetay
+    El::DistMatrix<real> residual(grid);  // residual Ay-thetay
     El::Zeros(residual, solverOptions.sizeOfTheMatrix, 1);
 
     // calculate the ritz vector Vs
@@ -73,13 +82,13 @@ void eigenSolver<real>::expandSearchSpace(int iterations,
     El::Gemv(El::NORMAL, alpha, searchSpacesub, eigenVectors(beg, end), beta,
              Vs);
 
-    El::DistMatrix<real> I(grid); // Identitiy matrix
+    El::DistMatrix<real> I(grid);  // Identitiy matrix
     El::Identity(
         I, solverOptions.sizeOfTheMatrix,
-        solverOptions.sizeOfTheMatrix); // Initialize as identity matrix
+        solverOptions.sizeOfTheMatrix);  // Initialize as identity matrix
     I *= eigenValues.GetLocal(j, 0);
     El::DistMatrix<real> Atemp(A);
-    Atemp -= I; // A-theta*I
+    Atemp -= I;  // A-theta*I
 
     // Calculate the residual r=(A-theta*I)*Vs
     El::Gemv(El::NORMAL, alpha, Atemp, Vs, beta, residual);
@@ -87,13 +96,13 @@ void eigenSolver<real>::expandSearchSpace(int iterations,
     if (solverOptions.solver == "davidson") {
       real den = 1.0 / eigenValues.GetLocal(j, 0) - A.GetLocal(j, j);
 
-      correctionVector = residual; // new search direction
+      correctionVector = residual;  // new search direction
       correctionVector *= den;
     } else if (solverOptions.solver == "jacobi") {
-      El::DistMatrix<real> proj(grid); // projector matrix
+      El::DistMatrix<real> proj(grid);  // projector matrix
       El::Zeros(proj, solverOptions.sizeOfTheMatrix,
                 solverOptions.sizeOfTheMatrix);
-      El::DistMatrix<real> Ip(grid); // Identitiy matrix
+      El::DistMatrix<real> Ip(grid);  // Identitiy matrix
       El::Identity(Ip, solverOptions.sizeOfTheMatrix,
                    solverOptions.sizeOfTheMatrix);
 
@@ -101,11 +110,11 @@ void eigenSolver<real>::expandSearchSpace(int iterations,
       proj -= I;
       proj *= -1.0;
 
-      El::DistMatrix<real> projProd(grid); // product of the projectors
+      El::DistMatrix<real> projProd(grid);  // product of the projectors
       El::Zeros(projProd, solverOptions.sizeOfTheMatrix,
                 solverOptions.sizeOfTheMatrix);
 
-      El::DistMatrix<real> projTemp(grid); // temp intermediate step
+      El::DistMatrix<real> projTemp(grid);  // temp intermediate step
       El::Zeros(projTemp, solverOptions.sizeOfTheMatrix,
                 solverOptions.sizeOfTheMatrix);
 
@@ -140,8 +149,8 @@ void eigenSolver<real>::solve(El::DistMatrix<real> &A, El::Grid &grid) {
 
   for (int iterations = columnsOfSearchSpace; iterations < maximumIterations;
        iterations = iterations + columnsOfSearchSpace) {
-    if (iterations <=
-        columnsOfSearchSpace) // If it is the first iteration copy t to V
+    if (iterations <= columnsOfSearchSpace)  // If it is the first iteration
+                                             // copy t to V
     {
 
       for (int i = 0; i < solverOptions.sizeOfTheMatrix; ++i) {
@@ -150,14 +159,14 @@ void eigenSolver<real>::solve(El::DistMatrix<real> &A, El::Grid &grid) {
         }
       }
       El::Ones(eigenValues_old, solverOptions.sizeOfTheMatrix,
-               1); // so this not to converge immediately
-    } else // if its not the first iteration then set old theta to the new one
+               1);  // so this not to converge immediately
+    } else  // if its not the first iteration then set old theta to the new one
     {
       eigenValues_old = eigenValues(begTheta, endTheta);
     }
 
     // Orthogonalize the searchSpace matrix using QR
-    El::DistMatrix<real> R; // R matrix for QR factorization
+    El::DistMatrix<real> R;  // R matrix for QR factorization
     El::Zeros(R, solverOptions.sizeOfTheMatrix, solverOptions.sizeOfTheMatrix);
 
     // QR factorization of V
@@ -167,11 +176,12 @@ void eigenSolver<real>::solve(El::DistMatrix<real> &A, El::Grid &grid) {
     subspaceProblem(iterations, A, grid);
     // expand the search space
     expandSearchSpace(iterations, A, grid);
+
   }
-  El::Print(eigenValues(begTheta, endTheta));
+    //El::Print(eigenVectors);
 }
 
 // explicit instantiations
 template class eigenSolver<float>;
 template class eigenSolver<double>;
-} // namespace eigenValueSolver
+}  // namespace eigenValueSolver

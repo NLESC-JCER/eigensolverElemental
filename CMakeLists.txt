@@ -20,7 +20,11 @@ endif(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CXX_FLAGS)
 ###############################################################################
 # User input options
 ###############################################################################
-option(ENABLE_TESTING "Build and enable tests" OFF)
+option(ENABLE_TESTING "Build and enable tests" ON)
+if(ENABLE_TESTING)
+  enable_testing()
+  find_package(Boost REQUIRED COMPONENTS unit_test_framework)
+endif(ENABLE_TESTING)
 
 ###############################################################################
 # Dependencies

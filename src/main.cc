@@ -37,15 +37,14 @@ int main(int argc, char *argv[]) {
     const El::Int matrixSize = El::Input("--size", "size of matrix", 100);
     const El::Int numEig = El::Input("--numeig", "number of eigenvalues", 1);
     const std::string solverType =
-        El::Input("--solver", "solver used", "Davidson");
+        El::Input("--solver", "solver used", "davidson");
 
     // Set block size
     El::SetBlocksize(blocksize);
 
     // If the grid height wasn't specified, then we should attempt to build
     // a nearly-square process grid
-    if (gridHeight == 0)
-      gridHeight = El::Grid::DefaultHeight(commSize);
+    if (gridHeight == 0) gridHeight = El::Grid::DefaultHeight(commSize);
     El::Grid grid{comm, gridHeight};
     if (commRank == 0)
       El::Output("Grid is: ", grid.Height(), " x ", grid.Width());

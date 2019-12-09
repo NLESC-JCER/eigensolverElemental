@@ -21,18 +21,26 @@
 
 namespace eigenValueSolver {
 
-template <typename real> class eigenSolver {
+template <typename real>
+class eigenSolver {
 
-public:
+ public:
   /**
    * Groups all the options for the solvers
    */
   struct options {
-    std::string solver = "davidson"; // either davidson or jacobi
-    real tolerence = 1e-8;           /** tolerence for convergence*/
+    std::string solver = "davidson";  // either davidson or jacobi
+    real tolerence = 1e-8;            /** tolerence for convergence*/
     int numberOfEigenValues = 1; /** number of eigen values to be calculated*/
     int sizeOfTheMatrix = 100;   /**Size of the input matrix*/
   };
+
+  El::DistMatrix<real> eigenVectors; /**s stores the current eigenvector
+                                        matrix*/
+  El::DistMatrix<real> eigenVectorsFull; /**s stores the current eigenvector
+                                                                              matrix*/
+  El::DistMatrix<real, El::VR, El::STAR> eigenValues; /**vector of eigen
+                                                         values*/
 
   options solverOptions;
   /**
@@ -40,7 +48,7 @@ public:
    */
   void solve(El::DistMatrix<real> &, El::Grid &);
 
-private:
+ private:
   int columnsOfSearchSpace = solverOptions.numberOfEigenValues *
                              2; /**The columns of the search space*/
   /*************Initialise all the matrices necessary**************/
@@ -48,12 +56,8 @@ private:
   El::DistMatrix<real> searchSpacesub;   /**Matrix that holds the search space*/
   El::DistMatrix<real> correctionVector; /**a matrix that holds the k guess
                                             eigen vectors each of size nx1*/
-  El::DistMatrix<real>
-      eigenVectors; /**s stores the current eigenvector matrix*/
-  El::DistMatrix<real, El::VR, El::STAR>
-      eigenValues; /**vector of eigen values*/
-  El::DistMatrix<real, El::VR, El::STAR>
-      eigenValues_old; /**vector of eigen values*/
+  El::DistMatrix<real, El::VR, El::STAR> eigenValues_old; /**vector of eigen
+                                                             values*/
 
   // Range to loop over just the required number of eigenvalues in theta
   El::Range<int> begTheta;
@@ -86,6 +90,6 @@ private:
    */
   void subspaceProblem(int, El::DistMatrix<real> &, El::Grid &);
 };
-} // namespace eigenValueSolver
+}  // namespace eigenValueSolver
 
 #endif /* eigenValueSolver_h */
