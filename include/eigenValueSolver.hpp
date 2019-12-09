@@ -46,7 +46,7 @@ class eigenSolver {
   /**
    * This function computes the eigen value-vector pairs for the input matrix
    */
-  void solve(El::DistMatrix<real> &, El::Grid &);
+  void solve(const El::DistMatrix<real> &, El::Grid &);
 
  private:
   int columnsOfSearchSpace = solverOptions.numberOfEigenValues *
@@ -83,12 +83,12 @@ class eigenSolver {
   /**
    *Expands the search space with the correction vector
    */
-  void expandSearchSpace(int, El::DistMatrix<real> &, El::Grid &);
+  void expandSearchSpace(int, const El::DistMatrix<real> &, El::Grid &);
 
   /**
    * solve the subspace problem i.e. VTAV and eigenvalue/vectors
    */
-  void subspaceProblem(int, El::DistMatrix<real> &, El::Grid &);
+  void subspaceProblem(int, const El::DistMatrix<real> &, El::Grid &);
 };
 }  // namespace eigenValueSolver
 

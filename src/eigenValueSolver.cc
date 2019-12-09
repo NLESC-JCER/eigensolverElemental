@@ -37,7 +37,7 @@ void eigenSolver<real>::initialise(El::Grid &grid) {
 }
 
 template <typename real>
-void eigenSolver<real>::subspaceProblem(int iterations, El::DistMatrix<real> &A,
+void eigenSolver<real>::subspaceProblem(int iterations, const El::DistMatrix<real> &A,
                                         El::Grid &grid) {
   searchSpacesub = searchSpace;
   searchSpacesub.Resize(solverOptions.sizeOfTheMatrix, iterations + 1);
@@ -65,7 +65,7 @@ void eigenSolver<real>::subspaceProblem(int iterations, El::DistMatrix<real> &A,
 
 template <typename real>
 void eigenSolver<real>::expandSearchSpace(int iterations,
-                                          El::DistMatrix<real> &A,
+                                          const El::DistMatrix<real> &A,
                                           El::Grid &grid) {
 
   for (int j = 0; j < columnsOfSearchSpace; ++j) {
@@ -141,7 +141,7 @@ void eigenSolver<real>::expandSearchSpace(int iterations,
 }
 
 template <typename real>
-void eigenSolver<real>::solve(El::DistMatrix<real> &A, El::Grid &grid) {
+void eigenSolver<real>::solve(const El::DistMatrix<real> &A, El::Grid &grid) {
 
   eigenSolver<real>::initialise(grid);
 
