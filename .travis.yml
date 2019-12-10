@@ -2,6 +2,11 @@ sudo: false
 
 language: cpp
 
+ENV:
+  INSTALL_PREFIX=${HOME}/local
+  GFORTRAN=/usr/bin/gfortran-7
+  GFORTRAN_LIB=/usr/lib/gcc/x86_64-linux-gnu/7
+
 addons:
   apt:
     sources:
@@ -28,7 +33,7 @@ before_install:
   - git clone --branch master git://github.com/elemental/Elemental.git ${HOME}/elemental
   - |
     cd ${HOME}/elemental && 
-    cmake -H. -Bbuild -DCMAKE_Fortran_COMPILER=/usr/bin/gfortran-7 -DGFORTRAN_LIB=/usr/lib/gcc/x86_64-linux-gnu/7 && 
+    cmake -H. -Bbuild -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} -DCMAKE_Fortran_COMPILER=${GFORTRAN} -DGFORTRAN_LIB=${GFORTRAN_LIB} && 
     cmake --build build --target install 
 script:
   - cmake -H. -Bbuild
