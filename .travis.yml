@@ -18,7 +18,7 @@ before_install:
   - sudo apt-get update -q
   - sudo apt-get install cmake libblas-dev liblapack-dev libopenmpi-dev
   # Install elemental
-  - git clone --single-branch master git://github.com/elemental/Elemental.git ${HOME}
+  - git clone --single-branch master git://github.com/elemental/Elemental.git ${HOME}/elemental
   - cd ${HOME}/elemental && cmake -H. -Bbuild -DCMAKE BUILD TYPE=PureDebug && cmake --build build --target install 
 script:
   - cmake -H. -Bbuild
