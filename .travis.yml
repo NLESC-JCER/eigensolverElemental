@@ -16,7 +16,10 @@ branches:
 before_install:
   - sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
   - sudo apt-get update -q
-  - sudo apt-get install cmake libblas-dev liblapack-dev libopenmpi-dev
+  - sudo apt-get install cmake libblas-dev libatlas-dev liblapack-dev libopenmpi-dev
+  # Install elemental
+  - git clone git://github.com/elemental/Elemental.git
+  - cd elemental && cmake -H. -Bbuild -DCMAKE BUILD TYPE=PureDebug && cmake --build build --target install 
 script:
   - cmake -H. -Bbuild
   - cmake --build build
