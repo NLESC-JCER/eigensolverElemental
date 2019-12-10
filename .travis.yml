@@ -26,12 +26,10 @@ before_install:
   - sudo apt-get update -q
   # Install elemental
   - git clone --branch master git://github.com/elemental/Elemental.git ${HOME}/elemental
+  - which gfortran && ls /usr/lib/gcc/x86_64-linux-gnu/7
   - |
     cd ${HOME}/elemental && 
-    cmake -H. -Bbuild
-     -DCMAKE_INSTALL_PREFIX=/usr/bin/gfortran-7
-     -DCMAKE_Fortran_COMPILER=${HOME}/local
-     -DGFORTRAN_LIB=/usr/lib/gcc/x86_64-linux-gnu/7 && 
+    cmake -H. -Bbuild -DCMAKE_INSTALL_PREFIX=/usr/bin/gfortran-7 -DCMAKE_Fortran_COMPILER=${HOME}/local -DGFORTRAN_LIB=/usr/lib/gcc/x86_64-linux-gnu/7 && 
     cmake --build build --target install 
 script:
   - cmake -H. -Bbuild
