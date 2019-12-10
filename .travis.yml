@@ -29,7 +29,11 @@ before_install:
   - ls /usr/lib/gcc/x86_64-linux-gnu/7
   - |
     cd ${HOME}/elemental && 
-    cmake -H. -Bbuild -DCMAKE_INSTALL_PREFIX=${HOME}/local -DCMAKE_Fortran_COMPILER=/usr/bin/gfortran-7 -DGFORTRAN_LIB=/usr/lib/gcc/x86_64-linux-gnu/7 && 
+    cmake -H. -Bbuild 
+      -DCMAKE_INSTALL_PREFIX=${HOME}/local 
+      -DCMAKE_Fortran_COMPILER=/usr/bin/gfortran-7 
+      -DGFORTRAN_LIB=/usr/lib/gcc/x86_64-linux-gnu/7 
+      -DEL_C_INTERFACE=OFF && 
     cmake --build build --target install 
 script:
   - cmake -H. -Bbuild
