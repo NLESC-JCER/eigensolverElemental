@@ -28,7 +28,7 @@ before_install:
   - git clone --branch master git://github.com/elemental/Elemental.git ${HOME}/elemental
   - |
     cd ${HOME}/elemental && 
-    cmake -H. -Bbuild -D CMAKE_Fortran_COMPILER=/usr/bin/gfortran-7 -D CMAKE_BUILD_TYPE=PureDebug && 
+    cmake -H. -Bbuild -DCMAKE_Fortran_COMPILER=/usr/bin/gfortran-7 -DCMAKE_BUILD_TYPE=PureDebug && 
     cmake --build build --target install 
 script:
   - cmake -H. -Bbuild
