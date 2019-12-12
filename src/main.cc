@@ -8,6 +8,8 @@
 
 #include "eigenValueSolver.hpp"
 #include "utils.hpp"
+#include <limits>
+#include <iomanip>
 
 using namespace eigenValueSolver;
 using namespace El;
@@ -63,8 +65,10 @@ int main(int argc, char *argv[]) {
     solver.solverOptions.tolerence = 1e-8;
     solver.solverOptions.solver = solverType;
     solver.solverOptions.sizeOfTheMatrix = A.Height();
-    El::Output(grid.Height());
+    El::Output(A.Height());
     solver.solve(A, grid);
+    std::cout << std::setprecision(std::numeric_limits<long double>::digits10 + 1) <<
+     solver.eigenValues.GetLocal(0,0) << std::endl;
   } catch (std::exception &e) {
     El::ReportException(e);
   }
