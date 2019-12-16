@@ -7,7 +7,6 @@
 //
 
 #include "eigenValueSolver.hpp"
-
 namespace eigenValueSolver {
 template <typename real>
 void eigenSolver<real>::initialise(El::Grid &grid) {
@@ -146,9 +145,12 @@ void eigenSolver<real>::solve(const El::DistMatrix<real> &A, El::Grid &grid) {
   eigenSolver<real>::initialise(grid);
 
   int maximumIterations = solverOptions.sizeOfTheMatrix / 2;
+  double rNorm = 1;
+  int iterations = columnsOfSearchSpace;
+  //for (int iterations = columnsOfSearchSpace; iterations < maximumIterations;
+       //iterations = iterations + columnsOfSearchSpace)
+       while (rNorm > solverOptions.tolerence){
 
-  for (int iterations = columnsOfSearchSpace; iterations < maximumIterations;
-       iterations = iterations + columnsOfSearchSpace) {
     if (iterations <= columnsOfSearchSpace)  // If it is the first iteration
                                              // copy t to V
     {
@@ -176,6 +178,28 @@ void eigenSolver<real>::solve(const El::DistMatrix<real> &A, El::Grid &grid) {
     subspaceProblem(iterations, A, grid);
     // expand the search space
     expandSearchSpace(iterations, A, grid);
+
+    //TEST FOR CONVERGENCE
+    El::DistMatrix<real> Ax(grid);
+    El::DistMatrix<real> lambdax(grid);
+    int matrixSize = solverOptions.sizeOfTheMatrix;
+    El::Zeros(Ax, matrixSize, 1);
+    El::Zeros(lambdax, matrixSize, 1);
+    El::Range<int> beg(0, solverOptions.sizeOfTheMatrix);
+    El::Range<int> end(0, 1);
+
+    double eVal = eigenValues.GetLocal(0,0);
+    El::DistMatrix<real> eVec = eigenVectorsFull(beg,end);
+    real alpha = 1, beta = 0;
+    El::Gemm(El::NORMAL, El::NORMAL, alpha, A, eigenVectorsFull(beg,end), beta, Ax);
+    El::Scale(eVal, eVec);
+
+
+    El::DistMatrix<real> r = Ax;
+    r -= eVec;
+    rNorm = El::Nrm2(r);
+    iterations = iterations + columnsOfSearchSpace;
+    std::cout << "error norm = " << iterations << " " << rNorm << std::endl;
 
   }
     //El::Print(eigenVectors);

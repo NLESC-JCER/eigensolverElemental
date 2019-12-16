@@ -36,7 +36,7 @@ int main(int argc, char *argv[]) {
     const El::Int numRhs = El::Input("--numRhs", "# of right-hand sides", 1);
     const bool error = El::Input("--error", "test Elemental error?", true);
     const bool details = El::Input("--details", "print norm details?", true);
-    const El::Int matrixSize = El::Input("--size", "size of matrix", 100);
+    const El::Int matrixSize = El::Input("--size", "size of matrix", 1000);
     const El::Int numEig = El::Input("--numeig", "number of eigenvalues", 1);
     const std::string solverType =
         El::Input("--solver", "solver used", "davidson");
