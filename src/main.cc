@@ -8,8 +8,8 @@
 
 #include "eigenValueSolver.hpp"
 #include "utils.hpp"
-#include <limits>
 #include <iomanip>
+#include <limits>
 
 using namespace eigenValueSolver;
 using namespace El;
@@ -26,49 +26,69 @@ int main(int argc, char *argv[]) {
 
   try {
 
-    // initalise all the MPI stuff
+    // Initalise all the MPI variables
+    // Size of the block
     const El::Int blocksize =
         El::Input("--blocksize", "algorithmic blocksize", 128);
+
+    // Height of the grid
     El::Int gridHeight = El::Input("--gridHeight", "grid height", 0);
-    // const El::Int numEigVal =
-    // El::Input("--numeigval", "size of matrix",
-    //     10); // Number of eigenvalues to be evaluated
+
+    // Number of right hand sides
     const El::Int numRhs = El::Input("--numRhs", "# of right-hand sides", 1);
+
+    // Error check
     const bool error = El::Input("--error", "test Elemental error?", true);
+
+    // Print details
     const bool details = El::Input("--details", "print norm details?", true);
+
+    // Size of the input matrix
     const El::Int matrixSize = El::Input("--size", "size of matrix", 1000);
+
+    // The number of eigenvalues to be calculated
     const El::Int numEig = El::Input("--numeig", "number of eigenvalues", 1);
+
+    // Type of the solver used
     const std::string solverType =
         El::Input("--solver", "solver used", "davidson");
 
     // Set block size
     El::SetBlocksize(blocksize);
 
-    // If the grid height wasn't specified, then we should attempt to build
-    // a nearly-square process grid
+    // If the grid height wasn't specified, then we should attempt to build a
+    // nearly-square process grid
     if (gridHeight == 0) gridHeight = El::Grid::DefaultHeight(commSize);
     El::Grid grid{comm, gridHeight};
     if (commRank == 0)
       El::Output("Grid is: ", grid.Height(), " x ", grid.Width());
 
-    // Set up random A and B, then make the copies X := B
-    El::Timer timer;
-
     // The matrix A whose eigenvalues have to be evaluated
     El::DistMatrix<real> A(grid);
+
+    // Initialize the matrix with zeros
     El::Zeros(A, matrixSize, matrixSize);
+
     // Generate the Diagonally dominant hermitian matrix
     generateDDHermitianMatrix<real>(A);
 
+    // Create an instance of the eigenSolver class
     eigenSolver<real> solver;
+
+    // Set solver options
     solver.solverOptions.numberOfEigenValues = numEig;
     solver.solverOptions.tolerence = 1e-8;
     solver.solverOptions.solver = solverType;
     solver.solverOptions.sizeOfTheMatrix = A.Height();
-    El::Output(A.Height());
+
+    // Solve function which calculates the eigenvalues and eigenvectors for
+    // matrix A
     solver.solve(A, grid);
-    std::cout << std::setprecision(std::numeric_limits<long double>::digits10 + 1) <<
-     solver.eigenValues.GetLocal(0,0) << std::endl;
+
+    //Print eigenvalues
+    std::cout << std::setprecision(std::numeric_limits<long double>::digits10 +
+                                   1)
+              << solver.eigenValues.GetLocal(0, 0) << std::endl;
   } catch (std::exception &e) {
     El::ReportException(e);
   }

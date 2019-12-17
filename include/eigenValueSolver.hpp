@@ -25,69 +25,82 @@ template <typename real>
 class eigenSolver {
 
  public:
-  /**
-   * Groups all the options for the solvers
-   */
+  //Groups all the options for the solvers
   struct options {
-    std::string solver = "davidson";  // either davidson or jacobi
-    real tolerence = 1e-8;            /** tolerence for convergence*/
-    int numberOfEigenValues = 1; /** number of eigen values to be calculated*/
-    int sizeOfTheMatrix = 100;   /**Size of the input matrix*/
+    // Type of solver used - either "davidson" or "jacobi"
+    std::string solver = "davidson";  
+
+    //Tolerence criterion for convergence
+    real tolerence = 1e-8; 
+
+    //The number of eigen values to be calculated         
+    int numberOfEigenValues = 1; 
+
+    //Size of the input matrix
+    int sizeOfTheMatrix = 100;   
   };
 
-  El::DistMatrix<real> eigenVectors; /**s stores the current eigenvector
-                                        matrix*/
-  El::DistMatrix<real> eigenVectorsFull; /**s stores the current eigenvector
-                                                                              matrix*/
-  El::DistMatrix<real, El::VR, El::STAR> eigenValues; /**vector of eigen
-                                                         values*/
+  
+  //MEMBER VARIABLES
 
+  //Eigenvector matrix of the reduced problem
+  El::DistMatrix<real> eigenVectors; 
+
+  //ritzVectors i.e. eigen vectors of the full matrix
+  El::DistMatrix<real> ritzVectors; 
+
+  //Eigenvalues
+  El::DistMatrix<real, El::VR, El::STAR> eigenValues; 
+
+  //Old eigenvalues
+   El::DistMatrix<real, El::VR, El::STAR> eigenValues_old;
+
+  //The guess eigenspace
+  El::DistMatrix<real> V;  
+
+  // A*V
+  El::DistMatrix<real> AV;     
+
+  //The guess eigenspace per iteration
+  El::DistMatrix<real> Vsub;   
+
+  //The correction vector
+  El::DistMatrix<real> correctionVector; 
+
+  //The residual
+  El::DistMatrix<real> residual;
+
+
+
+  //Instance of the options struct
   options solverOptions;
-  /**
-   * This function computes the eigen value-vector pairs for the input matrix
-   */
+
+  //MEMBER FUNCTIONS
+  //This function computes the eigen value-vector pairs for the input matrix
   void solve(const El::DistMatrix<real> &, El::Grid &);
 
  private:
-  int columnsOfSearchSpace = solverOptions.numberOfEigenValues *
-                             2; /**The columns of the search space*/
-  /*************Initialise all the matrices necessary**************/
-  El::DistMatrix<real> searchSpace;      /**Matrix that holds the search space*/
-  El::DistMatrix<real> searchSpacesub;   /**Matrix that holds the search space*/
-  El::DistMatrix<real> correctionVector; /**a matrix that holds the k guess
-                                            eigen vectors each of size nx1*/
-  El::DistMatrix<real, El::VR, El::STAR> eigenValues_old; /**vector of eigen
-                                                             values*/
-
+  //The size of the search space
+  int sizeOfSearchSpace = solverOptions.numberOfEigenValues * 2; 
+  
   // Range to loop over just the required number of eigenvalues in theta
   El::Range<int> begTheta;
   El::Range<int> endTheta;
-  // El::Range<int> begTheta{0, solverOptions.numberOfEigenValues};
-  // El::Range<int> endTheta{0, 1};
+  
 
-  /**
-   * This function initialises all the required matrices
-   */
-  void initialise(El::Grid &);
+  //This function initialises all the required matrices
+   void initialise(El::Grid &);
 
-  /**
-   *Calculates the residual
-   */
+  //Calculates the residual
   void calculateResidual();
 
-  /**
-   *Calculates the correction vector
-   */
+  //Calculates the correction vector
   void calculateCorrectionVector();
 
-  /**
-   *Expands the search space with the correction vector
-   */
+  //Expands the search space with the correction vector
   void expandSearchSpace(int, const El::DistMatrix<real> &, El::Grid &);
 
-  /**
-   * solve the subspace problem i.e. VTAV and eigenvalue/vectors
-   */
+  //Solve the subspace problem i.e. VTAV and eigenvalue/vectors
   void subspaceProblem(int, const El::DistMatrix<real> &, El::Grid &);
 };
 }  // namespace eigenValueSolver
