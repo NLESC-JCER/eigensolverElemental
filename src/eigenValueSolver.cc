@@ -53,25 +53,25 @@ void eigenSolver<real>::subspaceProblem(int iterations,
   searchSpacesub = searchSpace;
   searchSpacesub.Resize(solverOptions.sizeOfTheMatrix, iterations + 1);
 
-  // Initialise T = V^TAV
+  //Initialise T = V^TAV
   El::DistMatrix<real> T(grid);
   El::Zeros(T, iterations + 1, iterations + 1);
 
   //Initialize the ritz vectors
   El::Zeros(ritzVectors, solverOptions.sizeOfTheMatrix, iterations + 1);
 
-  // Parameters for GEMM
+  //Parameters for GEMM
   real alpha = 1, beta = 0;
 
-  // AV
+  //AV
   El::Gemm(El::NORMAL, El::NORMAL, alpha, A, searchSpacesub, beta, AV);
-  // V^TAV
+  //V^TAV
   El::Gemm(El::TRANSPOSE, El::NORMAL, alpha, searchSpacesub, AV, beta, T);
 
-  // Get the eigen pairs for the reduced problem V^TAV
+  //Get the eigen pairs for the reduced problem V^TAV
   El::HermitianEig(El::UPPER, T, eigenValues, eigenVectors);
 
-  // Calculate the ritz vectors
+  //Calculate the ritz vectors
   El::Gemm(El::NORMAL, El::NORMAL, alpha, searchSpacesub, eigenVectors, beta,
            ritzVectors);
 }
