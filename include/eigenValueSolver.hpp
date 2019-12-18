@@ -52,9 +52,6 @@ class eigenSolver {
   //Eigenvalues
   El::DistMatrix<real, El::VR, El::STAR> eigenValues; 
 
-  //Old eigenvalues
-   El::DistMatrix<real, El::VR, El::STAR> eigenValues_old;
-
   //The guess eigenspace
   El::DistMatrix<real> V;  
 
