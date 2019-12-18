@@ -44,9 +44,9 @@ BOOST_AUTO_TEST_CASE(davidson_solver) {
   El::Range<int> end(0, 1);
 
   double eVal = solver.eigenValues.GetLocal(0,0);
-  El::DistMatrix<real> eVec = solver.eigenVectorsFull(beg,end);
+  El::DistMatrix<real> eVec = solver.ritzVectors(beg,end);
 
-  El::Gemm(El::NORMAL, El::NORMAL, 1.0, A, solver.eigenVectorsFull(beg,end), 0.0, Ax);
+  El::Gemm(El::NORMAL, El::NORMAL, 1.0, A, solver.ritzVectors(beg,end), 0.0, Ax);
   El::Scale(eVal, eVec);
 
 

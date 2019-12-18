@@ -44,7 +44,7 @@ int main(int argc, char *argv[]) {
     const bool details = El::Input("--details", "print norm details?", true);
 
     // Size of the input matrix
-    const El::Int matrixSize = El::Input("--size", "size of matrix", 1000);
+    const El::Int matrixSize = El::Input("--size", "size of matrix", 10);
 
     // The number of eigenvalues to be calculated
     const El::Int numEig = El::Input("--numeig", "number of eigenvalues", 1);
