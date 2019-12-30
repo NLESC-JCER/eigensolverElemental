@@ -67,8 +67,6 @@ class eigenSolver {
   //The residual
   El::DistMatrix<real> residual;
 
-
-
   //Instance of the options struct
   options solverOptions;
 
@@ -78,7 +76,7 @@ class eigenSolver {
 
  private:
   //The size of the search space
-  int sizeOfSearchSpace = solverOptions.numberOfEigenValues * 2; 
+  real sizeOfSearchSpace; 
   
   // Range to loop over just the required number of eigenvalues in theta
   El::Range<int> begTheta;
@@ -86,13 +84,13 @@ class eigenSolver {
   
 
   //This function initialises all the required matrices
-   void initialise(El::Grid &);
+   void initialise( El::Grid &, const El::DistMatrix<real> &);
 
   //Calculates the residual
-  void calculateResidual();
+  bool calculateResidual(int, El::Grid &);
 
   //Calculates the correction vector
-  void calculateCorrectionVector();
+  void calculateCorrectionVector(int, const El::DistMatrix<real> &, El::Grid &);
 
   //Expands the search space with the correction vector
   void expandSearchSpace(int, const El::DistMatrix<real> &, El::Grid &);

@@ -7,133 +7,64 @@
 //
 
 #include "eigenValueSolver.hpp"
+#include <cmath>
+
 namespace eigenValueSolver {
 
 template <typename real>
-void eigenSolver<real>::initialise(El::Grid &grid) {
+void eigenSolver<real>::initialise(El::Grid &grid,
+                                   const El::DistMatrix<real> &A) {
 
-  // Set the grid (MPI) for all the member matrices/vectors
+  // Intitialize the size of the search space
+  sizeOfSearchSpace = solverOptions.numberOfEigenValues * 5;
+
+  // Intialize the search space V as an identity matrix of size n x
+  // sizeOfSearchSpace
   V.SetGrid(grid);
+  El::Identity(V, solverOptions.sizeOfTheMatrix, sizeOfSearchSpace);
+
+  // Initialize the Vsub which part of the search space relevent to the current
+  // iteration of size n x numEigVal
   Vsub.SetGrid(grid);
-  correctionVector.SetGrid(grid);
-  eigenVectors.SetGrid(grid);
-  ritzVectors.SetGrid(grid);
-  eigenValues.SetGrid(grid);
-  AV.SetGrid(grid);
-  residual.SetGrid(grid);
-  ritzVectors.SetGrid(grid);
-
-  // Initialize eigenValue ranges
-  begTheta = El::Range<int>{0, solverOptions.numberOfEigenValues};
-  endTheta = El::Range<int>{0, 1};
-
-  // Initialize the member matrices/vectors
-  El::Identity(V, solverOptions.sizeOfTheMatrix, solverOptions.sizeOfTheMatrix);
   El::Identity(Vsub, solverOptions.sizeOfTheMatrix,
-               solverOptions.sizeOfTheMatrix);
+               solverOptions.numberOfEigenValues);
+
+  // Initialize the eigen vectors
+  eigenVectors.SetGrid(grid);
   El::Identity(eigenVectors, solverOptions.sizeOfTheMatrix,
-               solverOptions.sizeOfTheMatrix);
-  // El::Identity(ritzVectors, solverOptions.sizeOfTheMatrix,
-  //             solverOptions.sizeOfTheMatrix);
-  El::Identity(eigenValues, solverOptions.sizeOfTheMatrix, 1);
-  El::Identity(residual, solverOptions.sizeOfTheMatrix, 1);
+               solverOptions.numberOfEigenValues);
+
+  // Initalize the residuals for all the eigenvalues
+  residual.SetGrid(grid);
+  El::Identity(residual, solverOptions.sizeOfTheMatrix,
+               solverOptions.numberOfEigenValues);
+
+  // Set the eigen value vector to diagonal values of input matrix and calculate
+  // respective residuals
+  eigenValues.SetGrid(grid);
+  El::Identity(eigenValues, solverOptions.numberOfEigenValues, 1);
+
+  ritzVectors.SetGrid(grid);
+  AV.SetGrid(grid);
+
   // Initialize the correction vector
+  correctionVector.SetGrid(grid);
   El::Identity(correctionVector, solverOptions.sizeOfTheMatrix,
-               sizeOfSearchSpace);
-}
-
-// Calculate the eigen pairs of the V^TAV problem
-template <typename real>
-void eigenSolver<real>::subspaceProblem(int iterations,
-                                        const El::DistMatrix<real> &A,
-                                        El::Grid &grid) {
-
-  // Initialise the VSub as a sub matrix of V
-  Vsub = V;
-  Vsub.Resize(solverOptions.sizeOfTheMatrix, iterations + 1);
-
-  // Initialise T = V^TAV
-  El::DistMatrix<real> T(grid);
-  El::Zeros(T, iterations + 1, iterations + 1);
-
-  // Initialize AV
-  El::Identity(AV, solverOptions.sizeOfTheMatrix, iterations + 1);
-
-  // Initialize the ritz vectors
-  El::Zeros(ritzVectors, solverOptions.sizeOfTheMatrix, iterations + 1);
-
-  // Parameters for GEMM
-  real alpha = 1, beta = 0;
-
-  // Calculate AV
-  El::Gemm(El::NORMAL, El::NORMAL, alpha, A, Vsub, beta, AV);
-
-  // Calculate V^TAV
-  El::Gemm(El::TRANSPOSE, El::NORMAL, alpha, Vsub, AV, beta, T);
-
-  // Get the eigen pairs for the reduced problem V^TAV
-  El::HermitianEig(El::UPPER, T, eigenValues, eigenVectors);
-}
+               solverOptions.numberOfEigenValues);
+}  // namespace eigenValueSolver
 
 // Calculate the residual and the correction vector
 template <typename real>
-void eigenSolver<real>::expandSearchSpace(int iterations,
-                                          const El::DistMatrix<real> &A,
-                                          El::Grid &grid) {
-
-  //
-  // for (int j = 0; j < sizeOfSearchSpace; ++j) {
-  for (int j = 0; j < iterations + 1; ++j) {
-
-    // Set ranges to get jth eigen vectors
-    El::Range<int> beg(0, iterations + 1);
-    El::Range<int> end(j, j + 1);
-
-    // Set ranges to get to get the relevent part of AV
-    El::Range<int> begAV(0, iterations + 1);
-    El::Range<int> endAV(0, iterations + 1);
-
-    // Parameters for GEMM
-    real alpha = 1, beta = 0;
-
-    // Calculate the ritz vectors
-    El::Gemm(El::NORMAL, El::NORMAL, alpha, Vsub, eigenVectors, beta,
-             ritzVectors);
-
-    // Matrix to store AV*s_j, where s is the eigenVector of the reduced problem
-    // and Vs the ritz vectors
-    El::DistMatrix<real> AVs(grid);
-    El::Zeros(AVs, iterations + 1, 1);
-
-    // Calculate AV*s_j
-    El::Gemm(El::NORMAL, El::NORMAL, alpha, AV(begAV, endAV),
-             eigenVectors(beg, end), beta, AVs);
-
-    // Identitiy matrix
-    El::DistMatrix<real> I(grid);
-    El::Identity(I, iterations + 1, iterations + 1);
-
-    // theta_j*I
-    I *= eigenValues.GetLocal(j, 0);
-
-    // Matrix to store theta*V*s_j
-    El::DistMatrix<real> thetaVs(grid);
-    El::Zeros(thetaVs, iterations + 1, 1);
-
-    // Calculate theta_j*I*Vs_j
-    El::Gemm(El::NORMAL, El::NORMAL, alpha, I, ritzVectors(beg, end), beta,
-             thetaVs);
-
-    // Calculate residual = AVs - thetaVs
-    residual = AVs;
-    residual -= thetaVs;
-
+void eigenSolver<real>::calculateCorrectionVector(int iterations,
+                                                  const El::DistMatrix<real> &A,
+                                                  El::Grid &grid) {
+  for (int j = 0; j < solverOptions.numberOfEigenValues; ++j) {
     if (solverOptions.solver == "davidson") {
-      for (int k = 0; k < iterations + 1; ++k) {
+      for (int k = 0; k < solverOptions.sizeOfTheMatrix; ++k) {
         // Calculate the correction vector = r/(D-theta*I)
-        real denominator = 1.0 / eigenValues.GetLocal(j, 0) - A.GetLocal(k, k);
-        correctionVector.SetLocal(k, 0, residual.GetLocal(k, 0) * denominator);
-        El::Print(correctionVector);
+        real denominator =
+            1.0 / (eigenValues.GetLocal(j, 0) - A.GetLocal(k, k));
+        correctionVector.SetLocal(k, j, residual.GetLocal(k, j) * denominator);
       }
     } /*else if (solverOptions.solver == "jacobi") {
       El::DistMatrix<real> proj(grid);  // projector matrix
@@ -164,47 +95,152 @@ void eigenSolver<real>::expandSearchSpace(int iterations,
 
       El::LinearSolve(projProd, correctionVector);
     }*/
-
-    // Append the correction vector to the search space
-    for (int k = 0; k < solverOptions.sizeOfTheMatrix; ++k) {
-      V.SetLocal(k, iterations + j + 1, correctionVector.GetLocal(k, 0));
-    }
-
-    // If residual is less than tolerence, then return
-    if (El::Nrm2(residual) < solverOptions.tolerence) {
-      return;
-    }
   }
 }
+
+// Calculate the residual
+template <typename real>
+bool eigenSolver<real>::calculateResidual(int iterations, El::Grid &grid) {
+
+  // Parameters for GEMM
+  real alpha = 1, beta = 0;
+
+  // Initialize the ritz vectors
+  El::Zeros(ritzVectors, solverOptions.sizeOfTheMatrix,
+            iterations * solverOptions.numberOfEigenValues);
+
+  // Calculate the ritz vectors
+  El::Gemm(El::NORMAL, El::NORMAL, alpha, Vsub, eigenVectors, beta,
+           ritzVectors);
+
+  int residualCheck = 0;
+  for (int j = 0; j < solverOptions.numberOfEigenValues; ++j) {
+
+    // Set ranges to get jth eigen vectors
+    El::Range<int> beg(0, iterations * solverOptions.numberOfEigenValues);
+    El::Range<int> end(j, j + 1);
+
+    // Set ranges to get jth ritz vectors
+    El::Range<int> begR(0, solverOptions.sizeOfTheMatrix);
+    El::Range<int> endR(j, j + 1);
+
+    // Matrix to store AV*s_j, where s is the eigenVector of the reduced problem
+    // and Vs the ritz vectors
+    El::DistMatrix<real> AVs(grid);
+    El::Zeros(AVs, solverOptions.sizeOfTheMatrix, 1);
+
+    // Calculate AV*s_j
+    El::Gemm(El::NORMAL, El::NORMAL, alpha, AV, eigenVectors(beg, end), beta,
+             AVs);
+
+    // Matrix to store theta*V*s_j
+    El::DistMatrix<real> thetaVs(ritzVectors(begR, endR));
+
+    // Calculate theta_j*I*Vs_j
+    thetaVs *= eigenValues.GetLocal(j, 0);
+
+    // Calculate residual = AVs - thetaVs
+    AVs -= thetaVs;
+    double normAVs = El::Nrm2(AVs);
+    if (normAVs < solverOptions.tolerence) {
+      ++residualCheck;
+    }
+
+    // Add the residual vector to the residual matrix
+    for (int k = 0; k < solverOptions.sizeOfTheMatrix; ++k) {
+      residual.SetLocal(k, j, AVs.GetLocal(k, 0));
+    }
+  }
+  if (residualCheck == solverOptions.numberOfEigenValues)
+    return true;
+  else
+    return false;
+}
+
+// Calculate the eigen pairs of the V^TAV problem
+template <typename real>
+void eigenSolver<real>::subspaceProblem(int iterations,
+                                        const El::DistMatrix<real> &A,
+                                        El::Grid &grid) {
+
+  // Initialise T = V^TAV
+  El::DistMatrix<real> T(grid);
+  El::Zeros(T, iterations * solverOptions.numberOfEigenValues,
+            iterations * solverOptions.numberOfEigenValues);
+
+  // Initialize AV
+  El::Identity(AV, solverOptions.sizeOfTheMatrix,
+               iterations * solverOptions.numberOfEigenValues);
+
+  // Parameters for GEMM
+  real alpha = 1, beta = 0;
+
+  // Calculate AV
+  El::Gemm(El::NORMAL, El::NORMAL, alpha, A, Vsub, beta, AV);
+
+  // Calculate V^TAV
+  El::Gemm(El::TRANSPOSE, El::NORMAL, alpha, Vsub, AV, beta, T);
+
+  // Get the eigen pairs for the reduced problem V^TAV
+  El::HermitianEig(El::UPPER, T, eigenValues, eigenVectors);
+}
+
+// Calculate the residual and the correction vector
+template <typename real>
+void eigenSolver<real>::expandSearchSpace(int iterations,
+                                          const El::DistMatrix<real> &A,
+                                          El::Grid &grid) {
+
+  for (int j = 0; j < solverOptions.numberOfEigenValues; ++j) {
+    // Append the correction vector to the search space
+    for (int k = 0; k < solverOptions.sizeOfTheMatrix; ++k) {
+      V.SetLocal(k, (iterations)*solverOptions.numberOfEigenValues + j,
+                 correctionVector.GetLocal(k, 0));
+    }
+  }
+}  // namespace eigenValueSolver
 
 template <typename real>
 void eigenSolver<real>::solve(const El::DistMatrix<real> &A, El::Grid &grid) {
 
-  //Set grid sizes of the member matrices and initialize them
-  eigenSolver<real>::initialise(grid);
+  // Set grid sizes of the member matrices and initialize them
+  eigenSolver<real>::initialise(grid, A);
 
+  for (int iterations = 1; iterations < solverOptions.sizeOfTheMatrix / 2;
+       ++iterations) {
 
-  int iterations = sizeOfSearchSpace;
-  // for (int iterations = columnsOfSearchSpace; iterations < maximumIterations;
-  // iterations = iterations + columnsOfSearchSpace)
-  while (rNorm > solverOptions.tolerence) {
+    // Solve the subspace problem VTAV
+    subspaceProblem(iterations, A, grid);
 
-    // Orthogonalize the searchSpace matrix using QR
-    El::DistMatrix<real> R;  // R matrix for QR factorization
-    El::Zeros(R, solverOptions.sizeOfTheMatrix, solverOptions.sizeOfTheMatrix);
+    // Calculate the residual
+    bool tolerenceReached = calculateResidual(iterations, grid);
+    if (tolerenceReached == true) return;
+
+    // Calculate the correction vector based on the solver
+    calculateCorrectionVector(iterations, A, grid);
+
+    // calculate residual, correction vector and expand the search space
+    expandSearchSpace(iterations, A, grid);
+    std::cout << "expsubsp" << std::endl;
+
+    // Initialise the VSub as a sub matrix of V
+    Vsub = V;
+    Vsub.Resize(solverOptions.sizeOfTheMatrix,
+                (iterations + 1) * solverOptions.numberOfEigenValues);
+
+    std::cout << "resize" << std::endl;
+
+    // R matrix for QR factorization
+    El::DistMatrix<real> R;
+    El::Zeros(R, (iterations + 1) * solverOptions.numberOfEigenValues,
+              solverOptions.sizeOfTheMatrix);
 
     // QR factorization of V
-    El::qr::Explicit(V, R, false);
-
-    // solve the subspace problem VTAV
-    subspaceProblem(iterations, A, grid);
-    // expand the search space
-    expandSearchSpace(iterations, A, grid);
-    if (El::Nrm2(residual) < solverOptions.tolerence) {
-      return;
-    }
-    iterations = iterations + sizeOfSearchSpace;
-    
+    El::qr::Explicit(Vsub, R);
+    El::Print(V);
+    std::cout << "*****ITERATIONS == " << iterations << std::endl;
+    El::Print(eigenValues);
+    std::cout << "ev done" << std::endl;
   }
 }
 

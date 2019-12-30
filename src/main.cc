@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
     solver.solverOptions.tolerence = 1e-8;
     solver.solverOptions.solver = solverType;
     solver.solverOptions.sizeOfTheMatrix = A.Height();
-
+    
     // Solve function which calculates the eigenvalues and eigenvectors for
     // matrix A
     solver.solve(A, grid);

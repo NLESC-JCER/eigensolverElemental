@@ -17,7 +17,7 @@ void generateDDHermitianMatrix(El::DistMatrix<real> &A) {
       if (i == j)
         A.SetLocal(i, j, i + 21);
       else
-        A.SetLocal(i, j, matrixSize * 0.0000001);
+        A.SetLocal(i, j, 0.1);
     }
   }
 }
