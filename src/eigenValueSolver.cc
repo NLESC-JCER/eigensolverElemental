@@ -14,9 +14,8 @@ namespace eigenValueSolver {
 template <typename real>
 void eigenSolver<real>::initialise(El::Grid &grid,
                                    const El::DistMatrix<real> &A) {
-
   // Intitialize the size of the search space
-  sizeOfSearchSpace = solverOptions.numberOfEigenValues * 5;
+  sizeOfSearchSpace = solverOptions.numberOfEigenValues * 3;
 
   // Intialize the search space V as an identity matrix of size n x
   // sizeOfSearchSpace
@@ -47,10 +46,6 @@ void eigenSolver<real>::initialise(El::Grid &grid,
   ritzVectors.SetGrid(grid);
   AV.SetGrid(grid);
 
-  // Initialize the correction vector
-  correctionVector.SetGrid(grid);
-  El::Identity(correctionVector, solverOptions.sizeOfTheMatrix,
-               solverOptions.numberOfEigenValues);
 }  // namespace eigenValueSolver
 
 // Calculate the residual and the correction vector
@@ -58,6 +53,9 @@ template <typename real>
 void eigenSolver<real>::calculateCorrectionVector(int iterations,
                                                   const El::DistMatrix<real> &A,
                                                   El::Grid &grid) {
+  correctionVector.SetGrid(grid);
+  El::Identity(correctionVector, solverOptions.sizeOfTheMatrix,
+               solverOptions.numberOfEigenValues);
   for (int j = 0; j < solverOptions.numberOfEigenValues; ++j) {
     if (solverOptions.solver == "davidson") {
       for (int k = 0; k < solverOptions.sizeOfTheMatrix; ++k) {
@@ -101,7 +99,6 @@ void eigenSolver<real>::calculateCorrectionVector(int iterations,
 // Calculate the residual
 template <typename real>
 bool eigenSolver<real>::calculateResidual(int iterations, El::Grid &grid) {
-
   // Parameters for GEMM
   real alpha = 1, beta = 0;
 
@@ -109,8 +106,12 @@ bool eigenSolver<real>::calculateResidual(int iterations, El::Grid &grid) {
   El::Zeros(ritzVectors, solverOptions.sizeOfTheMatrix,
             iterations * solverOptions.numberOfEigenValues);
 
+  // Set ranges of V
+  El::Range<int> begV(0, solverOptions.sizeOfTheMatrix);
+  El::Range<int> endV(0, iterations * solverOptions.numberOfEigenValues);
+
   // Calculate the ritz vectors
-  El::Gemm(El::NORMAL, El::NORMAL, alpha, Vsub, eigenVectors, beta,
+  El::Gemm(El::NORMAL, El::NORMAL, alpha, V(begV, endV), eigenVectors, beta,
            ritzVectors);
 
   int residualCheck = 0;
@@ -151,6 +152,7 @@ bool eigenSolver<real>::calculateResidual(int iterations, El::Grid &grid) {
       residual.SetLocal(k, j, AVs.GetLocal(k, 0));
     }
   }
+
   if (residualCheck == solverOptions.numberOfEigenValues)
     return true;
   else
@@ -162,6 +164,9 @@ template <typename real>
 void eigenSolver<real>::subspaceProblem(int iterations,
                                         const El::DistMatrix<real> &A,
                                         El::Grid &grid) {
+  // Set ranges of V
+  El::Range<int> begV(0, solverOptions.sizeOfTheMatrix);
+  El::Range<int> endV(0, iterations * solverOptions.numberOfEigenValues);
 
   // Initialise T = V^TAV
   El::DistMatrix<real> T(grid);
@@ -176,26 +181,39 @@ void eigenSolver<real>::subspaceProblem(int iterations,
   real alpha = 1, beta = 0;
 
   // Calculate AV
-  El::Gemm(El::NORMAL, El::NORMAL, alpha, A, Vsub, beta, AV);
+  El::Gemm(El::NORMAL, El::NORMAL, alpha, A, V(begV, endV), beta, AV);
 
   // Calculate V^TAV
-  El::Gemm(El::TRANSPOSE, El::NORMAL, alpha, Vsub, AV, beta, T);
+  El::Gemm(El::TRANSPOSE, El::NORMAL, alpha, V(begV, endV), AV, beta, T);
 
   // Get the eigen pairs for the reduced problem V^TAV
   El::HermitianEig(El::UPPER, T, eigenValues, eigenVectors);
 }
 
-// Calculate the residual and the correction vector
+// Expand the search space with the correction vector
 template <typename real>
-void eigenSolver<real>::expandSearchSpace(int iterations,
+void eigenSolver<real>::expandSearchSpace(int &iterations,
                                           const El::DistMatrix<real> &A,
                                           El::Grid &grid) {
-
-  for (int j = 0; j < solverOptions.numberOfEigenValues; ++j) {
-    // Append the correction vector to the search space
-    for (int k = 0; k < solverOptions.sizeOfTheMatrix; ++k) {
-      V.SetLocal(k, (iterations)*solverOptions.numberOfEigenValues + j,
-                 correctionVector.GetLocal(k, 0));
+  //Implement Restart part                                          
+  if ((iterations * solverOptions.numberOfEigenValues) >= sizeOfSearchSpace) {
+    iterations = 0;
+    eigenSolver<real>::initialise(grid, A);
+    for (int j = 0; j < solverOptions.numberOfEigenValues; ++j) {
+      // Append the correction vector to the search space
+      for (int k = 0; k < solverOptions.sizeOfTheMatrix; ++k) {
+        V.SetLocal(k, j, correctionVector.GetLocal(k, j));
+      }
+    }
+  }
+  //If no restart add the correction vector to V
+  else {
+    for (int j = 0; j < solverOptions.numberOfEigenValues; ++j) {
+      // Append the correction vector to the search space
+      for (int k = 0; k < solverOptions.sizeOfTheMatrix; ++k) {
+        V.SetLocal(k, (iterations)*solverOptions.numberOfEigenValues + j,
+                   correctionVector.GetLocal(k, j));
+      }
     }
   }
 }  // namespace eigenValueSolver
@@ -205,6 +223,7 @@ void eigenSolver<real>::solve(const El::DistMatrix<real> &A, El::Grid &grid) {
 
   // Set grid sizes of the member matrices and initialize them
   eigenSolver<real>::initialise(grid, A);
+  int count = 0;
 
   for (int iterations = 1; iterations < solverOptions.sizeOfTheMatrix / 2;
        ++iterations) {
@@ -221,26 +240,21 @@ void eigenSolver<real>::solve(const El::DistMatrix<real> &A, El::Grid &grid) {
 
     // calculate residual, correction vector and expand the search space
     expandSearchSpace(iterations, A, grid);
-    std::cout << "expsubsp" << std::endl;
 
-    // Initialise the VSub as a sub matrix of V
-    Vsub = V;
-    Vsub.Resize(solverOptions.sizeOfTheMatrix,
-                (iterations + 1) * solverOptions.numberOfEigenValues);
-
-    std::cout << "resize" << std::endl;
+    // Set ranges of V
+    El::Range<int> begV(0, solverOptions.sizeOfTheMatrix);
+    El::Range<int> endV(0,
+                        (iterations + 1) * solverOptions.numberOfEigenValues);
 
     // R matrix for QR factorization
     El::DistMatrix<real> R;
     El::Zeros(R, (iterations + 1) * solverOptions.numberOfEigenValues,
               solverOptions.sizeOfTheMatrix);
 
+    El::DistMatrix<real> Q(V(begV, endV));
     // QR factorization of V
-    El::qr::Explicit(Vsub, R);
-    El::Print(V);
-    std::cout << "*****ITERATIONS == " << iterations << std::endl;
-    El::Print(eigenValues);
-    std::cout << "ev done" << std::endl;
+    El::qr::Explicit(Q, R);
+    ++count;
   }
 }
 

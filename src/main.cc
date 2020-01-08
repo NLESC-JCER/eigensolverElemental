@@ -80,15 +80,17 @@ int main(int argc, char *argv[]) {
     solver.solverOptions.tolerence = 1e-8;
     solver.solverOptions.solver = solverType;
     solver.solverOptions.sizeOfTheMatrix = A.Height();
-    
+
     // Solve function which calculates the eigenvalues and eigenvectors for
     // matrix A
     solver.solve(A, grid);
 
-    //Print eigenvalues
-    std::cout << std::setprecision(std::numeric_limits<long double>::digits10 +
-                                   1)
-              << solver.eigenValues.GetLocal(0, 0) << std::endl;
+    // Print eigenvalues
+    for (int i = 0; i < numEig; ++i) {
+      std::cout << std::setprecision(
+                       std::numeric_limits<long double>::digits10 + 1)
+                << solver.eigenValues.GetLocal(i, 0) << std::endl;
+    }
   } catch (std::exception &e) {
     El::ReportException(e);
   }
